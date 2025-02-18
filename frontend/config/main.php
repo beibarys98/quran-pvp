@@ -7,7 +7,7 @@ $params = array_merge(
 );
 
 return [
-    'name' => 'quran-pvp',
+    'name' => 'Quran-PVP',
 
     'id' => 'app-frontend',
     'basePath' => dirname(__DIR__),

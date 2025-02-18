@@ -2,34 +2,28 @@
 
 /** @var yii\web\View $this */
 /** @var yii\bootstrap5\ActiveForm $form */
-/** @var \frontend\models\SignupForm $model */
+/** @var User $model */
 
+use common\models\User;
 use yii\bootstrap5\Html;
 use yii\bootstrap5\ActiveForm;
 
-$this->title = 'Signup';
-$this->params['breadcrumbs'][] = $this->title;
+$this->title = 'Quran-PVP';
 ?>
 <div class="site-signup">
-    <h1><?= Html::encode($this->title) ?></h1>
+    <div style="margin: 0 auto; width: 300px; margin-top: 75vh;">
+        <?php $form = ActiveForm::begin(['id' => 'form-signup']); ?>
 
-    <p>Please fill out the following fields to signup:</p>
-
-    <div class="row">
-        <div class="col-lg-5">
-            <?php $form = ActiveForm::begin(['id' => 'form-signup']); ?>
-
-                <?= $form->field($model, 'username')->textInput(['autofocus' => true]) ?>
-
-                <?= $form->field($model, 'email') ?>
-
-                <?= $form->field($model, 'password')->passwordInput() ?>
-
-                <div class="form-group">
-                    <?= Html::submitButton('Signup', ['class' => 'btn btn-primary', 'name' => 'signup-button']) ?>
-                </div>
-
-            <?php ActiveForm::end(); ?>
+        <div class="input-group">
+            <?= Html::activeTextInput($model, 'username', [
+                'class' => 'form-control',
+                'placeholder' => 'Логин ойлап табыңыз!',
+                'aria-label' => 'Recipient\'s username',
+                'aria-describedby' => 'button-addon2',
+            ]) ?>
+            <button class="btn btn-outline-primary" type="submit" id="button-addon2">Кіру</button>
         </div>
+
+        <?php ActiveForm::end(); ?>
     </div>
 </div>

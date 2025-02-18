@@ -2,19 +2,14 @@
 
 namespace frontend\controllers;
 
-use frontend\models\ResendVerificationEmailForm;
-use frontend\models\VerifyEmailForm;
+use common\models\Rating;
+use common\models\User;
 use Yii;
-use yii\base\InvalidArgumentException;
-use yii\web\BadRequestHttpException;
+use yii\data\ActiveDataProvider;
+use yii\data\ArrayDataProvider;
 use yii\web\Controller;
 use yii\filters\VerbFilter;
 use yii\filters\AccessControl;
-use common\models\LoginForm;
-use frontend\models\PasswordResetRequestForm;
-use frontend\models\ResetPasswordForm;
-use frontend\models\SignupForm;
-use frontend\models\ContactForm;
 
 /**
  * Site controller
@@ -68,48 +63,100 @@ class SiteController extends Controller
         ];
     }
 
-    /**
-     * Displays homepage.
-     *
-     * @return mixed
-     */
     public function actionIndex()
     {
         if(Yii::$app->user->isGuest) {
-            return $this->redirect('/site/login');
+            return $this->redirect('/site/signup');
         }
 
-        return $this->render('index');
-    }
+        //rating
+        $topCounts = Rating::find()->orderBy(['day' => SORT_DESC])->limit(3)->all();
+        $topWeeks = Rating::find()->orderBy(['week' => SORT_DESC])->limit(3)->all();
+        $topMonths = Rating::find()->orderBy(['month' => SORT_DESC])->limit(3)->all();
+        $topAllTime = Rating::find()->orderBy(['all_time' => SORT_DESC])->limit(3)->all();
 
-    /**
-     * Logs in a user.
-     *
-     * @return mixed
-     */
-    public function actionLogin()
-    {
-        if (!Yii::$app->user->isGuest) {
-            return $this->goHome();
+        $combinedData = [];
+        for ($i = 0; $i < 3; $i++) {
+            $combinedData[] = [
+                'day' => $topCounts[$i]->day ?? null,
+                'day_user_id' => $topCounts[$i]->user_id ?? null,
+                'week' => $topWeeks[$i]->week ?? null,
+                'week_user_id' => $topWeeks[$i]->user_id ?? null,
+                'month' => $topMonths[$i]->month ?? null,
+                'month_user_id' => $topMonths[$i]->user_id ?? null,
+                'all_time' => $topAllTime[$i]->all_time ?? null,
+                'all_time_user_id' => $topAllTime[$i]->user_id ?? null,
+            ];
         }
 
-        $model = new LoginForm();
-        if ($model->load(Yii::$app->request->post()) && $model->login()) {
-            return $this->goBack();
+        $dataProviderCombined = new ArrayDataProvider([
+            'allModels' => $combinedData,
+            'pagination' => false,
+        ]);
+
+        //user's place
+        $dataProvider = new ActiveDataProvider([
+            'query' => Rating::find()->andWhere(['user_id' => Yii::$app->user->identity->id]),
+        ]);
+
+        //user stats
+        $dataProvider2 = new ActiveDataProvider([
+            'query' => Rating::find()->andWhere(['user_id' => Yii::$app->user->identity->id]),
+        ]);
+
+        //daily update
+        $user = Rating::findOne(['user_id' => Yii::$app->user->id]);
+        $currentDate = date('d');
+        $lastUpdatedDate = date('d', strtotime($user->updated_at));
+        if ($currentDate !== $lastUpdatedDate){
+            $models = Rating::find()->all();
+            foreach($models as $model){
+                $currentDate = date('d');
+                $lastUpdatedDate = date('d', strtotime($model->updated_at));
+                $currentWeek = date('W');
+                $lastUpdatedWeek = date('W', strtotime($model->updated_at));
+                $currentMonth = date('m');
+                $lastUpdatedMonth = date('m', strtotime($model->updated_at));
+
+                if ($currentDate !== $lastUpdatedDate) {
+                    $model->day = 0;
+                    $model->save();
+                }
+                if ($currentWeek !== $lastUpdatedWeek) {
+                    $model->week = 0;
+                    $model->save();
+                }
+                if ($currentMonth !== $lastUpdatedMonth) {
+                    $model->month = 0;
+                    $model->save();
+                }
+            }
         }
 
-        $model->password = '';
 
-        return $this->render('login', [
-            'model' => $model,
+        return $this->render('index', [
+            'dataProviderCombined' => $dataProviderCombined,
+            'dataProvider' => $dataProvider,
         ]);
     }
 
-    /**
-     * Logs out the current user.
-     *
-     * @return mixed
-     */
+    public function getUserRank($category)
+    {
+        $userId = Yii::$app->user->id;
+        $query = Rating::find()->orderBy([$category => SORT_DESC]);
+        $models = $query->all();
+        $rank = 1;
+
+        foreach ($models as $model) {
+            if ($model->user_id === $userId) {
+                return $rank;
+            }
+            $rank++;
+        }
+
+        return null;
+    }
+
     public function actionLogout()
     {
         Yii::$app->user->logout();
@@ -117,147 +164,33 @@ class SiteController extends Controller
         return $this->goHome();
     }
 
-    /**
-     * Displays contact page.
-     *
-     * @return mixed
-     */
-    public function actionContact()
-    {
-        $model = new ContactForm();
-        if ($model->load(Yii::$app->request->post()) && $model->validate()) {
-            if ($model->sendEmail(Yii::$app->params['adminEmail'])) {
-                Yii::$app->session->setFlash('success', 'Thank you for contacting us. We will respond to you as soon as possible.');
-            } else {
-                Yii::$app->session->setFlash('error', 'There was an error sending your message.');
-            }
-
-            return $this->refresh();
-        }
-
-        return $this->render('contact', [
-            'model' => $model,
-        ]);
-    }
-
-    /**
-     * Displays about page.
-     *
-     * @return mixed
-     */
-    public function actionAbout()
-    {
-        return $this->render('about');
-    }
-
-    /**
-     * Signs user up.
-     *
-     * @return mixed
-     */
     public function actionSignup()
     {
-        $model = new SignupForm();
-        if ($model->load(Yii::$app->request->post()) && $model->signup()) {
-            Yii::$app->session->setFlash('success', 'Thank you for registration. Please check your inbox for verification email.');
-            return $this->goHome();
+        $model = new User();
+        $rating = new Rating();
+        if ($model->load(Yii::$app->request->post())) {
+            $existingUser = User::findOne(['username' => $model->username]);
+
+            if ($existingUser && Yii::$app->user->login($existingUser, 3600 * 24 * 30)) {
+                Yii::$app->session->setFlash('danger', 'Тіркелген аккаунтқа кірдіңіз!');
+                return $this->redirect(['site/index']);
+            }
+
+            $model->generateAuthKey();
+            $model->setPassword('password');
+            $model->save(false);
+
+            $rating->user_id = $model->id;
+            $rating->save(false);
+
+            Yii::$app->session->setFlash('success', 'Тіркелу сәтті өтті!');
+            if (Yii::$app->user->login($model)) {
+                return $this->redirect(['site/index']);
+            }
         }
 
         return $this->render('signup', [
             'model' => $model,
-        ]);
-    }
-
-    /**
-     * Requests password reset.
-     *
-     * @return mixed
-     */
-    public function actionRequestPasswordReset()
-    {
-        $model = new PasswordResetRequestForm();
-        if ($model->load(Yii::$app->request->post()) && $model->validate()) {
-            if ($model->sendEmail()) {
-                Yii::$app->session->setFlash('success', 'Check your email for further instructions.');
-
-                return $this->goHome();
-            }
-
-            Yii::$app->session->setFlash('error', 'Sorry, we are unable to reset password for the provided email address.');
-        }
-
-        return $this->render('requestPasswordResetToken', [
-            'model' => $model,
-        ]);
-    }
-
-    /**
-     * Resets password.
-     *
-     * @param string $token
-     * @return mixed
-     * @throws BadRequestHttpException
-     */
-    public function actionResetPassword($token)
-    {
-        try {
-            $model = new ResetPasswordForm($token);
-        } catch (InvalidArgumentException $e) {
-            throw new BadRequestHttpException($e->getMessage());
-        }
-
-        if ($model->load(Yii::$app->request->post()) && $model->validate() && $model->resetPassword()) {
-            Yii::$app->session->setFlash('success', 'New password saved.');
-
-            return $this->goHome();
-        }
-
-        return $this->render('resetPassword', [
-            'model' => $model,
-        ]);
-    }
-
-    /**
-     * Verify email address
-     *
-     * @param string $token
-     * @throws BadRequestHttpException
-     * @return yii\web\Response
-     */
-    public function actionVerifyEmail($token)
-    {
-        try {
-            $model = new VerifyEmailForm($token);
-        } catch (InvalidArgumentException $e) {
-            throw new BadRequestHttpException($e->getMessage());
-        }
-        if (($user = $model->verifyEmail()) && Yii::$app->user->login($user)) {
-            Yii::$app->session->setFlash('success', 'Your email has been confirmed!');
-            return $this->goHome();
-        }
-
-        Yii::$app->session->setFlash('error', 'Sorry, we are unable to verify your account with provided token.');
-        return $this->goHome();
-    }
-
-    /**
-     * Resend verification email
-     *
-     * @return mixed
-     */
-    public function actionResendVerificationEmail()
-    {
-        $model = new ResendVerificationEmailForm();
-        if ($model->load(Yii::$app->request->post()) && $model->validate()) {
-            if ($model->sendEmail()) {
-                Yii::$app->session->setFlash('success', 'Check your email for further instructions.');
-                return $this->goHome();
-            }
-            Yii::$app->session->setFlash('error', 'Sorry, we are unable to resend verification email for the provided email address.');
-        }
-
-        return $this->render('resendVerificationEmail', [
-            'model' => $model
         ]);
     }
 }
