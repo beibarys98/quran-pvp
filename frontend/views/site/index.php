@@ -17,7 +17,7 @@ $this->title = Yii::$app->name;
     <?= GridView::widget([
         'dataProvider' => $dataProviderCombined,
         'summary' => false,
-        'tableOptions' => ['class' => 'table table-hover'],
+        'tableOptions' => ['class' => 'table table-bordered'],
         'columns' => [
             [
                 'value' => function ($model) {
@@ -25,8 +25,11 @@ $this->title = Yii::$app->name;
                     $username = $user->username ?? '-';
                     $shortUsername = mb_strimwidth($username, 0, 6, '…');
                     $score = $model['day'] ?? '- -';
-                    $class = ($model['day_user_id'] == Yii::$app->user->id) ? 'text-success fw-bold' : '';
-                    return "<span class='{$class}'>{$shortUsername} <span style='color: orangered;'>{$score}</span></span>";
+                    $class = ($model['day_user_id'] == Yii::$app->user->id) ? 'fw-bold' : '';
+
+                    return "<span class='{$class}'>{$shortUsername} 
+                                <span style='float: right; color: orangered;'>{$score}</span>
+                            </span>";
                 },
                 'label' => 'күн',
                 'enableSorting' => false,
@@ -35,38 +38,41 @@ $this->title = Yii::$app->name;
                 'contentOptions' => ['style' => 'width: 25%;'],
             ],
             [
-                'attribute' => 'week',
-                'label' => 'апта',
                 'value' => function ($model) {
                     $user = User::findOne($model['week_user_id']);
                     $username = $user->username ?? '-';
                     $shortUsername = mb_strimwidth($username, 0, 7, '…');
                     $score = $model['week'] ?? '- -';
-                    $class = ($model['week_user_id'] == Yii::$app->user->id) ? 'text-success fw-bold' : '';
-                    return "<span class='{$class}'>{$shortUsername} <span style='color: lightseagreen;'>{$score}</span></span>";
+                    $class = ($model['week_user_id'] == Yii::$app->user->id) ? 'fw-bold' : '';
+                    return "<span class='{$class}'>{$shortUsername}
+                                <span style='float: right; color: lightseagreen;'>{$score}</span>
+                            </span>";
                 },
+                'label' => 'апта',
+                'enableSorting' => false,
+                'attribute' => 'week',
                 'format' => 'raw',
                 'contentOptions' => ['style' => 'width: 25%;'],
-                'enableSorting' => false,
             ],
             [
-                'attribute' => 'month',
-                'label' => 'ай',
                 'value' => function ($model) {
                     $user = User::findOne($model['month_user_id']);
                     $username = $user->username ?? '-';
                     $shortUsername = mb_strimwidth($username, 0, 6, '…');
                     $score = $model['month'] ?? '- -';
-                    $class = ($model['month_user_id'] == Yii::$app->user->id) ? 'text-success fw-bold' : '';
-                    return "<span class='{$class}'>{$shortUsername} <span style='color: dodgerblue;'>{$score}</span></span>";
+                    $class = ($model['month_user_id'] == Yii::$app->user->id) ? 'fw-bold' : '';
+                    return "<span class='{$class}'>{$shortUsername}
+                                <span style='float: right; color: dodgerblue;'>{$score}</span>
+                            </span>";
                 },
+                'label' => 'ай',
+                'enableSorting' => false,
+                'attribute' => 'month',
                 'format' => 'raw',
                 'contentOptions' => ['style' => 'width: 25%;'],
-                'enableSorting' => false,
+
             ],
             [
-                'attribute' => 'all_time',
-                'label' => 'барлығы',
                 'value' => function ($model) {
                     $user = User::findOne($model['all_time_user_id']);
                     $username = $user->username ?? '-';
@@ -81,12 +87,16 @@ $this->title = Yii::$app->name;
                     } else {
                         $score2 = $score;
                     }
-                    $class = ($model['all_time_user_id'] == Yii::$app->user->id) ? 'text-success fw-bold' : '';
-                    return "<span class='{$class}'>{$shortUsername} <span style='color: mediumpurple;'>{$score2}</span></span>";
+                    $class = ($model['all_time_user_id'] == Yii::$app->user->id) ? 'fw-bold' : '';
+                    return "<span class='{$class}'>{$shortUsername}
+                                <span style='float: right; color: mediumpurple;'>{$score2}</span>
+                            </span>";
                 },
+                'label' => 'барлығы',
+                'enableSorting' => false,
+                'attribute' => 'all_time',
                 'format' => 'raw',
                 'contentOptions' => ['style' => 'width: 25%;'],
-                'enableSorting' => false,
             ],
         ],
     ]) ?>
@@ -97,89 +107,68 @@ $this->title = Yii::$app->name;
         'dataProvider' => $dataProvider,
         'showHeader' => false,
         'summary' => false,
-        'tableOptions' => ['class' => 'table table-hover'],
+        'tableOptions' => ['class' => 'table table-bordered'],
         'columns' => [
             [
-                'attribute' => 'day',
-                'value' => function () {
+                'value' => function ($model) {
                     $rank = Yii::$app->controller->getUserRank('day');
-                    switch ($rank) {
-                        case 1:
-                            return "<span style='color: gold; font-weight: bold;'>$rank</span>";
-                        case 2:
-                            return "<span style='color: silver; font-weight: bold;'>$rank</span>";
-                        case 3:
-                            return "<span style='color: #cd7f32; font-weight: bold;'>$rank</span>"; // Bronze color
-                        default:
-                            return $rank;
-                    }
+                    return "<span>#$rank
+                                <span style='float: right; color: orangered'>$model->day</span>
+                            </span>";
                 },
+                'attribute' => 'day',
                 'format' => 'raw',
                 'contentOptions' => ['style' => 'width: 25%;'],
             ],
             [
-                'attribute' => 'week',
-                'value' => function () {
+                'value' => function ($model) {
                     $rank = Yii::$app->controller->getUserRank('week');
-                    switch ($rank) {
-                        case 1:
-                            return "<span style='color: gold; font-weight: bold;'>$rank</span>";
-                        case 2:
-                            return "<span style='color: silver; font-weight: bold;'>$rank</span>";
-                        case 3:
-                            return "<span style='color: #cd7f32; font-weight: bold;'>$rank</span>"; // Bronze color
-                        default:
-                            return $rank;
-                    }
+                    return "<span>#$rank
+                                <span style='float: right; color: lightseagreen'>$model->week</span>
+                            </span>";
                 },
+                'attribute' => 'week',
                 'format' => 'raw',
                 'contentOptions' => ['style' => 'width: 25%;'],
             ],
             [
-                'attribute' => 'month',
-                'value' => function () {
+                'value' => function ($model) {
                     $rank = Yii::$app->controller->getUserRank('month');
-                    switch ($rank) {
-                        case 1:
-                            return "<span style='color: gold; font-weight: bold;'>$rank</span>";
-                        case 2:
-                            return "<span style='color: silver; font-weight: bold;'>$rank</span>";
-                        case 3:
-                            return "<span style='color: #cd7f32; font-weight: bold;'>$rank</span>"; // Bronze color
-                        default:
-                            return $rank;
-                    }
+                    return "<span>#$rank
+                                <span style='float: right; color: dodgerblue'>$model->month</span>
+                            </span>";
                 },
+                'attribute' => 'month',
                 'format' => 'raw',
                 'contentOptions' => ['style' => 'width: 25%;'],
             ],
             [
-                'attribute' => 'all_time',
-                'value' => function () {
+                'value' => function ($model) {
                     $rank = Yii::$app->controller->getUserRank('all_time');
-                    switch ($rank) {
-                        case 1:
-                            return "<span style='color: gold; font-weight: bold;'>$rank</span>";
-                        case 2:
-                            return "<span style='color: silver; font-weight: bold;'>$rank</span>";
-                        case 3:
-                            return "<span style='color: #cd7f32; font-weight: bold;'>$rank</span>"; // Bronze color
-                        default:
-                            return $rank;
+                    $score = $model->all_time;
+                    if ($score >= 1000000000) {
+                        $score2 = round($score / 1000000000, 1) . 'b';
+                    } elseif ($score >= 1000000) {
+                        $score2 = round($score / 1000000, 1) . 'm';
+                    } elseif ($score >= 1000) {
+                        $score2 = round($score / 1000, 1) . 'k';
+                    } else {
+                        $score2 = $score;
                     }
+                    return "<span>#$rank
+                                <span style='float: right; color: mediumpurple'>$score2</span>
+                            </span>";
                 },
+                'attribute' => 'all_time',
                 'format' => 'raw',
                 'contentOptions' => ['style' => 'width: 25%;'],
             ]
         ],
     ]); ?>
-    <div style="font-weight: bold;" class="text-center mt-5">
-        <?= User::findOne(Yii::$app->user->id)->username ?>
-    </div>
     <?= GridView::widget([
         'dataProvider' => $dataProvider,
         'summary' => false,
-        'tableOptions' => ['class' => 'table table-hover'],
+        'tableOptions' => ['class' => 'table table-bordered'],
         'columns' => [
             [
                 'label' => 'деңгей',
