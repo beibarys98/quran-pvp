@@ -3,10 +3,13 @@
 /** @var yii\web\View $this */
 /** @var $dataProviderCombined */
 /** @var $dataProvider */
-/** @var $dataProvider2 */
 
+use common\models\Rating;
 use common\models\User;
+use yii\bootstrap5\ActiveForm;
 use yii\grid\GridView;
+use yii\helpers\Html;
+use yii\helpers\Url;
 
 $this->title = Yii::$app->name;
 ?>
@@ -100,7 +103,7 @@ $this->title = Yii::$app->name;
             ],
         ],
     ]) ?>
-    <div style="font-weight: bold;" class="text-center mt-5">
+    <div style="font-weight: bold;" class="text-center">
         рейтингтегі орныңыз
     </div>
     <?= GridView::widget([
@@ -165,29 +168,72 @@ $this->title = Yii::$app->name;
             ]
         ],
     ]); ?>
+    <div class="text-center fw-bold">
+        <?php
+            $rating = Rating::findOne(['user_id' => Yii::$app->user->id])
+        ?>
+        <?= $rating->user->username . ' ('. $rating->level .' lvl)' ?>
+    </div>
     <?= GridView::widget([
         'dataProvider' => $dataProvider,
         'summary' => false,
         'tableOptions' => ['class' => 'table table-bordered'],
         'columns' => [
             [
-                'label' => 'деңгей',
-                'attribute' => 'level',
-                'contentOptions' => ['style' => 'width: 33%;'],
-                'enableSorting' => false,
-            ],
-            [
                 'label' => 'тартыс',
                 'attribute' => 'battles',
-                'contentOptions' => ['style' => 'width: 33%;'],
+                'contentOptions' => ['style' => 'width: 50%;'],
                 'enableSorting' => false,
             ],
             [
                 'label' => 'жеңіс',
                 'attribute' => 'wins',
-                'contentOptions' => ['style' => 'width: 33%;'],
+                'contentOptions' => ['style' => 'width: 50%;'],
                 'enableSorting' => false,
             ]
         ],
     ]); ?>
+
+
+    <div class="row text-center align-items-center p-3 ms-1 me-1 toggle-container"
+         style="margin-top: 15vh; border: 1px solid black; border-radius: 10px; cursor: pointer;">
+        <div class="col-4 text-end">
+            Транслитерация
+        </div>
+        <div class="col-4 d-flex justify-content-center">
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="toggleText" name="mode">
+            </div>
+        </div>
+        <div class="col-4 text-start">
+            Араб тілі
+        </div>
+    </div>
+
+    <?php $form = ActiveForm::begin(['action' => ['site/random'], 'method' => 'get']); ?>
+    <input type="hidden" id="hiddenToggle" name="mode" value="0">
+    <div class="row mt-3">
+        <div class="col-6">
+            <?= Html::a('Досыңмен тартыс', ['site/friend'], ['class' => 'btn btn-lg btn-success w-100']) ?>
+        </div>
+        <div class="col-6">
+            <?= Html::submitButton('Бөтенмен тартыс', ['class' => 'btn btn-lg btn-danger w-100']) ?>
+        </div>
+    </div>
+    <?php ActiveForm::end(); ?>
+
+    <script>
+        document.querySelector(".toggle-container").addEventListener("click", function(event) {
+            if (event.target.id !== "toggleText") {
+                let toggle = document.getElementById("toggleText");
+                toggle.checked = !toggle.checked;
+                document.getElementById("hiddenToggle").value = toggle.checked ? 'arabic' : 'transliteration';
+            }
+        });
+
+        document.getElementById("toggleText").addEventListener("change", function() {
+            document.getElementById("hiddenToggle").value = this.checked ? 'arabic' : 'transliteration';
+        });
+    </script>
+
 </div>

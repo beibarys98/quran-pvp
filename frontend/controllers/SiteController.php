@@ -2,6 +2,8 @@
 
 namespace frontend\controllers;
 
+use common\models\Battle;
+use common\models\QuranId;
 use common\models\Rating;
 use common\models\User;
 use Yii;
@@ -155,6 +157,58 @@ class SiteController extends Controller
         }
 
         return null;
+    }
+
+    public function actionFriend(){
+
+    }
+
+    public function actionRandom($mode = 'transliteration'){
+        $playerId = Yii::$app->user->id;
+        $player = Rating::findOne($playerId);
+        $player->status = 'random';
+        $player->save(false);
+
+        $minLevel = max(0, $player->level - 3);
+        $maxLevel = min(114, $player->level + 3);
+        $maxWaitTime = 60;
+        $startTime = time();
+        do {
+            $opponent = Rating::find()
+                ->andWhere(['status' => 'random'])
+                ->andWhere(['between', 'level', $minLevel, $maxLevel])
+                ->andWhere(['!=', 'id', $playerId])
+                ->orderBy(new \yii\db\Expression('RAND()'))
+                ->limit(1)
+                ->one();
+
+            if ($opponent) {
+                break;
+            }
+
+            usleep(500000);
+        } while (time() - $startTime < $maxWaitTime);
+
+        if (!$opponent) {
+            Yii::$app->session->setFlash('error', 'No opponent found. Try again later.');
+            return $this->redirect(['site/index']);
+        }
+
+        $turn = (bool)rand(0, 1);
+
+        $suraIds = range(114 - $player->level, 114);
+        $randomSuraId = $suraIds[array_rand($suraIds)];
+
+        $battle = new Battle();
+        $battle->playerOne = $turn ? $player->id : $opponent->id;
+        $battle->playerTwo = $turn ? $opponent->id : $player->id;
+        $battle->suraId = $randomSuraId;
+        $battle->save(false);
+
+        return $this->render('random', [
+            'battle' => $battle,
+            'mode' => $mode,
+        ]);
     }
 
     public function actionLogout()
