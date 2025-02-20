@@ -9,9 +9,11 @@ use common\models\User;
 use Yii;
 use yii\data\ActiveDataProvider;
 use yii\data\ArrayDataProvider;
+use yii\helpers\Url;
 use yii\web\Controller;
 use yii\filters\VerbFilter;
 use yii\filters\AccessControl;
+use yii\web\NotFoundHttpException;
 
 /**
  * Site controller
@@ -163,52 +165,104 @@ class SiteController extends Controller
 
     }
 
-    public function actionRandom($mode = 'transliteration'){
+    public function actionRandom($mode = '0') {
         $playerId = Yii::$app->user->id;
-        $player = Rating::findOne($playerId);
-        $player->status = 'random';
+        $player = Rating::findOne(['user_id' => $playerId]);
+        $player->status = 'lobby'; // Set status to "lobby"
         $player->save(false);
+
+        return $this->redirect(['site/lobby', 'mode' => $mode]);
+    }
+
+    public function actionLobby($mode = '0') {
+        return $this->render('lobby', [
+            'mode' => $mode,
+        ]);
+    }
+
+    public function actionCancel() {
+        $playerId = Yii::$app->user->id;
+        $player = Rating::findOne(['user_id' => $playerId]);
+
+        if ($player) {
+            $player->status = 'index'; // Reset status
+            $player->save(false);
+        }
+
+        return $this->redirect(['site/index']); // Go back to homepage
+    }
+
+    public function actionFindOpponent($mode = '0') {
+        $playerId = Yii::$app->user->id;
+        $player = Rating::findOne(['user_id' => $playerId]);
+
+        $existingBattle = Battle::find()
+            ->andWhere(['or', ['playerOne' => $playerId], ['playerTwo' => $playerId]])
+            ->orderBy(['id' => SORT_DESC]) // Get latest battle
+            ->one();
+
+        if ($existingBattle) {
+            return $this->asJson([
+                'success' => true,
+                'battleUrl' => Url::to(['site/battle', 'id' => $existingBattle->id, 'mode' => $mode])
+            ]);
+        }
 
         $minLevel = max(0, $player->level - 3);
         $maxLevel = min(114, $player->level + 3);
-        $maxWaitTime = 60;
-        $startTime = time();
-        do {
-            $opponent = Rating::find()
-                ->andWhere(['status' => 'random'])
-                ->andWhere(['between', 'level', $minLevel, $maxLevel])
-                ->andWhere(['!=', 'id', $playerId])
-                ->orderBy(new \yii\db\Expression('RAND()'))
-                ->limit(1)
-                ->one();
 
-            if ($opponent) {
-                break;
-            }
+        $opponent = Rating::find()
+            ->andWhere(['status' => 'lobby']) // Look for players in "lobby"
+            ->andWhere(['between', 'level', $minLevel, $maxLevel])
+            ->andWhere(['!=', 'user_id', $playerId])
+            ->orderBy(new \yii\db\Expression('RAND()'))
+            ->limit(1)
+            ->one();
 
-            usleep(500000);
-        } while (time() - $startTime < $maxWaitTime);
+        if ($opponent) {
+            // Set both players' status to "battle"
+            $player->status = 'battle';
+            $opponent->status = 'battle';
+            $player->save(false);
+            $opponent->save(false);
 
-        if (!$opponent) {
-            Yii::$app->session->setFlash('error', 'No opponent found. Try again later.');
-            return $this->redirect(['site/index']);
+            // Randomly decide who plays first
+            $turn = (bool)rand(0, 1);
+
+            // Select a random Surah based on the player's level
+            $suraIds = range(114 - $player->level, 114);
+            $randomSuraId = $suraIds[array_rand($suraIds)];
+
+            // Create a new battle
+            $battle = new Battle();
+            $battle->playerOne = $turn ? $player->user_id : $opponent->user_id;
+            $battle->playerTwo = $turn ? $opponent->user_id : $player->user_id;
+            $battle->suraId = $randomSuraId;
+            $battle->save(false);
+
+            return $this->asJson([
+                'success' => true,
+                'battleUrl' => Url::to(['site/battle', 'id' => $battle->id, 'mode' => $mode]),
+            ]);
         }
 
-        $turn = (bool)rand(0, 1);
+        return $this->asJson(['success' => false]); // No opponent yet, retry in 2s
+    }
 
-        $suraIds = range(114 - $player->level, 114);
-        $randomSuraId = $suraIds[array_rand($suraIds)];
+    public function actionBattle($id, $mode = '0') {
+        $battle = Battle::findOne($id);
+        if (!$battle) {
+            throw new NotFoundHttpException("Battle not found.");
+        }
 
-        $battle = new Battle();
-        $battle->playerOne = $turn ? $player->id : $opponent->id;
-        $battle->playerTwo = $turn ? $opponent->id : $player->id;
-        $battle->suraId = $randomSuraId;
-        $battle->save(false);
-
-        return $this->render('random', [
+        return $this->render('battle', [
             'battle' => $battle,
             'mode' => $mode,
         ]);
+    }
+
+    public function actionTurn(){
+
     }
 
     public function actionLogout()

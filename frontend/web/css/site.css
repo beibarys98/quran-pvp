@@ -1,3 +1,7 @@
+div[style*="overflow-y: auto"]::-webkit-scrollbar {
+    display: none;
+}
+
 .alert-overlay {
     position: absolute;
     top: 0;

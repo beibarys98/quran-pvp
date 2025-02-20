@@ -42,9 +42,9 @@ class User extends ActiveRecord implements IdentityInterface
             ['username', 'trim'],
             ['username', 'required', 'message' => 'Логин толтырылмаған!'],
             ['username', 'unique', 'targetClass' => '\common\models\User', 'message' => 'Бұл логин бос емес!'],
-            ['username', 'string', 'min' => 2, 'max' => 32,
+            ['username', 'string', 'min' => 2, 'max' => 10,
                 'tooShort' => 'Логин тым қысқа! Кемінде 2 таңба болуы керек.',
-                'tooLong' => 'Логин тым ұзын! Ең көбі 32 таңба болуы керек.'
+                'tooLong' => 'Логин тым ұзын! Ең көбі 10 таңба болуы керек.'
             ],
         ];
     }

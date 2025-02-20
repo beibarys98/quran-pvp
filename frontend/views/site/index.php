@@ -180,13 +180,13 @@ $this->title = Yii::$app->name;
         'tableOptions' => ['class' => 'table table-bordered'],
         'columns' => [
             [
-                'label' => 'тартыс',
+                'label' => 'шайқастар',
                 'attribute' => 'battles',
                 'contentOptions' => ['style' => 'width: 50%;'],
                 'enableSorting' => false,
             ],
             [
-                'label' => 'жеңіс',
+                'label' => 'жеңістер',
                 'attribute' => 'wins',
                 'contentOptions' => ['style' => 'width: 50%;'],
                 'enableSorting' => false,
@@ -195,7 +195,7 @@ $this->title = Yii::$app->name;
     ]); ?>
 
 
-    <div class="row text-center align-items-center p-3 ms-1 me-1 toggle-container"
+    <div class="row text-center align-items-center p-3 mx-1 toggle-container"
          style="margin-top: 15vh; border: 1px solid black; border-radius: 10px; cursor: pointer;">
         <div class="col-4 text-end">
             Транслитерация
@@ -214,10 +214,18 @@ $this->title = Yii::$app->name;
     <input type="hidden" id="hiddenToggle" name="mode" value="0">
     <div class="row mt-3">
         <div class="col-6">
-            <?= Html::a('Досыңмен тартыс', ['site/friend'], ['class' => 'btn btn-lg btn-success w-100']) ?>
+            <?php
+            $message = urlencode("Сәлем! Досым, менімен Құран шайқасына қосыл! 🚀 \n\nШайқасқа қосылу үшін осы сілтемеге өтіңіз: " . Yii::$app->urlManager->createAbsoluteUrl(['site/friend']));
+            $whatsappUrl = "https://api.whatsapp.com/send?text=$message";
+            ?>
+            <?= Html::a('Досыңмен шайқас', $whatsappUrl, [
+                'class' => 'btn btn-lg btn-success w-100',
+                'target' => '_blank' // Opens WhatsApp in a new tab
+            ]) ?>
         </div>
+
         <div class="col-6">
-            <?= Html::submitButton('Бөтенмен тартыс', ['class' => 'btn btn-lg btn-danger w-100']) ?>
+            <?= Html::submitButton('Бөтенмен шайқас', ['class' => 'btn btn-lg btn-danger w-100']) ?>
         </div>
     </div>
     <?php ActiveForm::end(); ?>
@@ -227,12 +235,12 @@ $this->title = Yii::$app->name;
             if (event.target.id !== "toggleText") {
                 let toggle = document.getElementById("toggleText");
                 toggle.checked = !toggle.checked;
-                document.getElementById("hiddenToggle").value = toggle.checked ? 'arabic' : 'transliteration';
+                document.getElementById("hiddenToggle").value = toggle.checked ? '1' : '0';
             }
         });
 
         document.getElementById("toggleText").addEventListener("change", function() {
-            document.getElementById("hiddenToggle").value = this.checked ? 'arabic' : 'transliteration';
+            document.getElementById("hiddenToggle").value = this.checked ? '1' : '0';
         });
     </script>
 
