@@ -9,7 +9,6 @@ use common\models\User;
 use yii\bootstrap5\ActiveForm;
 use yii\grid\GridView;
 use yii\helpers\Html;
-use yii\helpers\Url;
 
 $this->title = Yii::$app->name;
 ?>
@@ -168,12 +167,21 @@ $this->title = Yii::$app->name;
             ]
         ],
     ]); ?>
-    <div class="text-center fw-bold">
+    <div class="text-center fw-bold mb-3 mt-5" style="font-size: 24px;">
         <?php
-            $rating = Rating::findOne(['user_id' => Yii::$app->user->id])
+        $rating = Rating::findOne(['user_id' => Yii::$app->user->id]);
+        $expPercentage = ($rating->exp / 3) * 100; // Convert exp to percentage
         ?>
-        <?= $rating->user->username . ' ('. $rating->level .' lvl)' ?>
+        <?= $rating->user->username . ' (' . $rating->level . ' lvl)' ?>
+
+        <!-- Progress Bar -->
+        <div class="progress mt-2" style="height: 20px; width: 100%; margin: 0 auto;">
+            <div class="progress-bar" role="progressbar" style="width: <?= $expPercentage ?>%; background-color: dimgrey"
+                 aria-valuenow="<?= $expPercentage ?>" aria-valuemin="0" aria-valuemax="100">
+            </div>
+        </div>
     </div>
+
     <?= GridView::widget([
         'dataProvider' => $dataProvider,
         'summary' => false,
@@ -195,8 +203,8 @@ $this->title = Yii::$app->name;
     ]); ?>
 
 
-    <div class="row text-center align-items-center p-3 mx-1 toggle-container"
-         style="margin-top: 15vh; border: 1px solid black; border-radius: 10px; cursor: pointer;">
+    <div class="row text-center align-items-center p-3 mx-1 mt-5 toggle-container"
+         style="border: 1px solid black; border-radius: 10px; cursor: pointer;">
         <div class="col-4 text-end">
             Транслитерация
         </div>
@@ -215,7 +223,10 @@ $this->title = Yii::$app->name;
     <div class="row mt-3">
         <div class="col-6">
             <?php
-            $message = urlencode("Сәлем! Досым, менімен Құран шайқасына қосыл! 🚀 \n\nШайқасқа қосылу үшін осы сілтемеге өтіңіз: " . Yii::$app->urlManager->createAbsoluteUrl(['site/friend']));
+            $userId = Yii::$app->user->id;
+            $message = urlencode("Ас саламу алейкум уа рахматуллахи уа баракатух! Досым, сені Құран Шайқасына шақырамын!\n\n" .
+                Yii::$app->urlManager->createAbsoluteUrl(['site/friend', 'inviter_id' => $userId])
+            );
             $whatsappUrl = "https://api.whatsapp.com/send?text=$message";
             ?>
             <?= Html::a('Досыңмен шайқас', $whatsappUrl, [
@@ -223,6 +234,7 @@ $this->title = Yii::$app->name;
                 'target' => '_blank' // Opens WhatsApp in a new tab
             ]) ?>
         </div>
+
 
         <div class="col-6">
             <?= Html::submitButton('Бөтенмен шайқас', ['class' => 'btn btn-lg btn-danger w-100']) ?>

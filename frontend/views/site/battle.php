@@ -8,10 +8,38 @@ use common\models\QuranId;
 use yii\helpers\Html;
 
 $this->title = Yii::$app->name;
+
+$siteIndexUrl = \yii\helpers\Url::to(['site/index']); // Get URL in PHP
+
+$this->registerJs(<<<JS
+    let lastTurn = {$battle->turn};
+    let siteIndexUrl = "{$siteIndexUrl}"; // Assign URL properly
+
+    function checkTurnUpdate() {
+        $.ajax({
+            url: window.location.href,
+            type: 'GET',
+            dataType: 'json',
+            success: function(response) {
+                if (response.turn !== lastTurn) {
+                    lastTurn = response.turn; // Prevent multiple reloads
+                    location.reload();
+                }
+            },
+            error: function() {
+                window.location.href = siteIndexUrl;
+            },
+            complete: function() {
+                setTimeout(checkTurnUpdate, 2000); // Check every 3 seconds
+            }
+        });
+    }
+
+    setTimeout(checkTurnUpdate, 2000);
+JS);
 ?>
 <div class="site-index">
     <div class="m-1 p-1 text-center" style="height: 40vh; border: 1px solid black; border-radius: 10px; overflow: hidden; display: flex; flex-direction: column;">
-
         <!-- First verse (static) -->
         <div style="font-size: 24px; border: 1px solid black; border-radius: 5px; padding: 5px;">
             <?= $mode ? QuranId::findOne(0)->ayahText : QuranId::findOne(0)->readText ?>
@@ -25,13 +53,22 @@ $this->title = Yii::$app->name;
             ->all();
         ?>
 
-        <div style="flex-grow: 1; overflow-y: auto; margin-top: 5px; padding: 5px;">
+        <div id="verseContainer" style="flex-grow: 1; overflow-y: auto; margin-top: 5px; padding: 5px;">
             <?php foreach ($quranVerses as $verse): ?>
                 <div style="font-size: 24px; border: 1px solid black; border-radius: 5px; padding: 5px; margin-bottom: 5px;">
                     <p><?= $mode ? $verse->ayahText : $verse->readText ?></p>
                 </div>
             <?php endforeach; ?>
         </div>
+        <?php
+        $this->registerJs(<<<JS
+            function scrollToBottom() {
+                let container = document.getElementById("verseContainer");
+                container.scrollTop = container.scrollHeight;
+            }
+            scrollToBottom();
+        JS);
+        ?>
     </div>
 
     <div class="row m-1 p-2" style="height: 10vh; border: 1px solid black; border-radius: 10px;">
@@ -61,19 +98,45 @@ $this->title = Yii::$app->name;
 
         <!-- Timer (Middle) -->
         <div class="col-4 p-1">
-            <div style="
-            height: 7vh;
-            border: 3px solid black;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            font-weight: bold;
-        ">
-                Timer
+            <div id="timer" style="
+                                height: 7vh;
+                                border: 3px solid black;
+                                border-radius: 10px;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                text-align: center;
+                                font-weight: bold;
+                                font-size: 24px;
+                            ">
+                5
             </div>
         </div>
+
+        <?php
+        $myTurn = ($battle->turn % 2 == 0 && $battle->playerTwo0->id == Yii::$app->user->id) ||
+            ($battle->turn % 2 == 1 && $battle->playerOne0->id == Yii::$app->user->id);
+
+        $playerId = Yii::$app->user->id;
+        $siteIndexUrl2 = \yii\helpers\Url::to(['site/end', 'battleId' => $battle->id, 'loserId' => $playerId]);
+
+        if ($myTurn):
+            $this->registerJs(<<<JS
+                let timeLeft = 5;
+                let siteIndexUrl2 = "{$siteIndexUrl2}"; 
+                function countdown() {
+                    document.getElementById("timer").innerText = timeLeft;
+                    if (timeLeft <= 0) {
+                        window.location.href = siteIndexUrl2;
+                    } else {
+                        timeLeft--;
+                        setTimeout(countdown, 1000);
+                    }
+                }
+                countdown();
+            JS);
+        endif;
+        ?>
 
         <!-- You (Right Side) -->
         <div class="col-4 p-1">
@@ -158,6 +221,26 @@ $this->title = Yii::$app->name;
         $buttonClass = $isMyTurn ? 'btn btn-lg btn-light w-100' : 'btn btn-lg btn-light w-100 disabled';
         ?>
 
+        <div class="row mt-1">
+            <div class="col-4">
+                <?= Html::a('a', ['site/turn', 'battleId' => $battle->id, 'choice' => $answerOptions[0]->verseID], [
+                    'class' => $buttonClass,
+                    'style' => 'border-color: black; pointer-events: ' . ($isMyTurn ? 'auto' : 'none') . ';'
+                ]) ?>
+            </div>
+            <div class="col-4">
+                <?= Html::a('b', ['site/turn', 'battleId' => $battle->id, 'choice' => $answerOptions[1]->verseID], [
+                    'class' => $buttonClass,
+                    'style' => 'border-color: black; pointer-events: ' . ($isMyTurn ? 'auto' : 'none') . ';'
+                ]) ?>
+            </div>
+            <div class="col-4">
+                <?= Html::a('c', ['site/turn', 'battleId' => $battle->id, 'choice' => $answerOptions[2]->verseID], [
+                    'class' => $buttonClass,
+                    'style' => 'border-color: black; pointer-events: ' . ($isMyTurn ? 'auto' : 'none') . ';'
+                ]) ?>
+            </div>
+        </div>
           
     </div>
 

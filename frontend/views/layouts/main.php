@@ -85,5 +85,5 @@ AppAsset::register($this);
         if (alert) {
             alert.style.display = 'none';
         }
-    }, 2000);
+    }, 5000);
 </script>

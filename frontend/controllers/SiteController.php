@@ -103,11 +103,6 @@ class SiteController extends Controller
             'query' => Rating::find()->andWhere(['user_id' => Yii::$app->user->identity->id]),
         ]);
 
-        //user stats
-        $dataProvider2 = new ActiveDataProvider([
-            'query' => Rating::find()->andWhere(['user_id' => Yii::$app->user->identity->id]),
-        ]);
-
         //daily update
         $user = Rating::findOne(['user_id' => Yii::$app->user->id]);
         $currentDate = date('d');
@@ -137,6 +132,24 @@ class SiteController extends Controller
             }
         }
 
+        $currentPlayer = Rating::findOne(['user_id' => Yii::$app->user->id]);
+
+        if ($currentPlayer && $currentPlayer->flag !== null) {
+            switch ($currentPlayer->flag) {
+                case 0:
+                    Yii::$app->session->setFlash('error', 'Сіз жеңілдіңіз.');
+                    break;
+                case 1:
+                    Yii::$app->session->setFlash('success', 'Сіз жеңдіңіз!');
+                    break;
+                case 2:
+                    Yii::$app->session->setFlash('info', 'Екеуіңіз де жеңдіңіз!');
+                    break;
+            }
+
+            $currentPlayer->flag = null;
+            $currentPlayer->save(false);
+        }
 
         return $this->render('index', [
             'dataProviderCombined' => $dataProviderCombined,
@@ -161,8 +174,54 @@ class SiteController extends Controller
         return null;
     }
 
-    public function actionFriend(){
+    public function actionInvite()
+    {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
 
+        $player = Rating::findOne(['user_id' => Yii::$app->user->id]);
+        if (!$player) {
+            return ['success' => false, 'message' => 'Player not found.'];
+        }
+
+        $player->status = 'friend';
+        if ($player->save(false)) {
+            return ['success' => true];
+        }
+
+        return ['success' => false, 'message' => 'Failed to update status.'];
+    }
+
+    public function actionFriend($inviter_id = null){
+        if (Yii::$app->user->isGuest) {
+            return $this->redirect(['site/login']);
+        }
+
+        $userId = Yii::$app->user->id;
+        $player = Rating::findOne(['user_id' => $userId]);
+
+        if ($inviter_id) {
+            $opponent = Rating::findOne(['user_id' => $inviter_id]);
+            $player->status = 'battle';
+            $opponent->status = 'battle';
+            $player->save(false);
+            $opponent->save(false);
+
+            // Randomly decide who plays first
+            $turn = (bool)rand(0, 1);
+
+            // Select a random Surah based on the player's level
+            $suraIds = range(114 - $opponent->level, 114);
+            $randomSuraId = $suraIds[array_rand($suraIds)];
+
+            // Create a new battle
+            $battle = new Battle();
+            $battle->playerOne = $turn ? $player->user_id : $opponent->user_id;
+            $battle->playerTwo = $turn ? $opponent->user_id : $player->user_id;
+            $battle->suraId = $randomSuraId;
+            $battle->save(false);
+
+            return $this->redirect(['site/battle', 'id' => $battle->suraId]);
+        }
     }
 
     public function actionRandom($mode = '0') {
@@ -255,15 +314,124 @@ class SiteController extends Controller
             throw new NotFoundHttpException("Battle not found.");
         }
 
+        // If it's an AJAX request, return turn and opponent's status
+        if (Yii::$app->request->isAjax) {
+            return $this->asJson([
+                'turn' => $battle->turn
+            ]);
+        }
+
         return $this->render('battle', [
             'battle' => $battle,
             'mode' => $mode,
         ]);
     }
 
-    public function actionTurn(){
+    public function actionTurn($battleId, $choice){
+        $battle = Battle::findOne($battleId);
+        if (!$battle) {
+            throw new NotFoundHttpException('Battle not found.');
+        }
 
+        // Get the correct answer
+        $correctVerse = QuranId::find()
+            ->andWhere(['suraId' => $battle->suraId])
+            ->andWhere(['verseID' => $battle->turn])
+            ->one();
+
+        // Check if the choice is correct
+        if ($choice == $correctVerse->verseID) {
+            // Correct answer: move to the next turn
+            $battle->turn += 1;
+            $battle->save(false);
+
+            // Check if we reached the end of the Surah
+            $maxVerse = QuranId::find()
+                ->andWhere(['suraId' => $battle->suraId])
+                ->orderBy(['verseID' => SORT_DESC])
+                ->one();
+
+            if ($battle->turn > $maxVerse->verseID) {
+                return $this->actionEnd($battleId);
+            }
+        } else {
+            // Determine whose turn it is
+            $isPlayerOneTurn = ($battle->turn % 2 == 1); // Odd = Player One, Even = Player Two
+            $currentPlayer = $isPlayerOneTurn ? $battle->playerOne0 : $battle->playerTwo0;
+
+            return $this->actionEnd($battleId, $currentPlayer->id);
+        }
+
+        return $this->redirect(['site/battle', 'id' => $battleId]);
     }
+
+    public function actionEnd($battleId, $loserId = null) {
+        $battle = Battle::findOne($battleId);
+        if (!$battle) {
+            throw new NotFoundHttpException('Battle not found.');
+        }
+
+        // Fetch both players
+        $playerOne = Rating::findOne(['user_id' => $battle->playerOne0->id]);
+        $playerTwo = Rating::findOne(['user_id' => $battle->playerTwo0->id]);
+
+        if ($loserId) {
+            // Determine the winner
+            $winner = ($playerOne->user_id == $loserId) ? $playerTwo : $playerOne;
+            $loser = ($playerOne->user_id == $loserId) ? $playerOne : $playerTwo;
+
+            // Update winner stats
+            $winner->day += 3;
+            $winner->week += 3;
+            $winner->month += 3;
+            $winner->all_time += 3;
+            $winner->battles += 1;
+            $winner->wins += 1;
+            $winner->status = 'index';
+            $winner->flag = 1;
+            if ((114 - $winner->level) == $battle->suraId) {
+                $winner->exp += 1;
+
+                if ($winner->exp >= 3) {
+                    $winner->level += 1;
+                    $winner->exp = 0;
+                }
+            }
+            $winner->save(false);
+
+            // Update loser stats
+            $loser->battles += 1;
+            $loser->status = 'index';
+            $loser->flag = 0;
+            $loser->save(false);
+        } else {
+            // If it's a draw, both players win
+            foreach ([$playerOne, $playerTwo] as $player) {
+                $player->day += 3;
+                $player->week += 3;
+                $player->month += 3;
+                $player->all_time += 3;
+                $player->battles += 1;
+                $player->wins += 1;
+                $player->status = 'index';
+                $player->flag = 2;
+                if ((114 - $player->level) == $battle->suraId) {
+                    $player->exp += 1;
+
+                    if ($player->exp >= 3) {
+                        $player->level += 1;
+                        $player->exp = 0;
+                    }
+                }
+                $player->save(false);
+            }
+        }
+
+        $battle->delete();
+
+        return $this->redirect(['site/index']);
+    }
+
 
     public function actionLogout()
     {
