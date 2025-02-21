@@ -174,35 +174,22 @@ class SiteController extends Controller
         return null;
     }
 
-    public function actionInvite()
-    {
-        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
-
-        $player = Rating::findOne(['user_id' => Yii::$app->user->id]);
-        if (!$player) {
-            return ['success' => false, 'message' => 'Player not found.'];
-        }
-
-        $player->status = 'friend';
-        if ($player->save(false)) {
-            return ['success' => true];
-        }
-
-        return ['success' => false, 'message' => 'Failed to update status.'];
-    }
-
-    public function actionFriend($inviter_id = null){
+    public function actionFriend($inviter_id = null, $mode = '0'){
         if (Yii::$app->user->isGuest) {
             return $this->redirect(['site/login']);
         }
 
-        $userId = Yii::$app->user->id;
-        $player = Rating::findOne(['user_id' => $userId]);
+        if($inviter_id == Yii::$app->user->id){
+            return $this->redirect(['site/lobby', 'type' => 'friendly']);
+        }else{
+            $userId = Yii::$app->user->id;
+            $player = Rating::findOne(['user_id' => $userId]);
 
-        if ($inviter_id) {
             $opponent = Rating::findOne(['user_id' => $inviter_id]);
             $player->status = 'battle';
+            $player->mode = $mode;
             $opponent->status = 'battle';
+            $opponent->mode = $mode;
             $player->save(false);
             $opponent->save(false);
 
@@ -219,23 +206,72 @@ class SiteController extends Controller
             $battle->playerTwo = $turn ? $opponent->user_id : $player->user_id;
             $battle->suraId = $randomSuraId;
             $battle->save(false);
-
-            return $this->redirect(['site/battle', 'id' => $battle->suraId]);
         }
+
+        return $this->redirect(['site/battle', 'id' => $battle->suraId]);
     }
+
+    public function actionLogin($inviter_id = null)
+    {
+        $model = new User();
+        $rating = new Rating();
+        if ($model->load(Yii::$app->request->post())) {
+            $existingUser = User::findOne(['username' => $model->username]);
+
+            if ($existingUser && Yii::$app->user->login($existingUser, 3600 * 24 * 30)) {
+                return $this->redirect(['site/friend', 'inviter_id' => $inviter_id]);
+            }
+
+            $model->generateAuthKey();
+            $model->setPassword('password');
+            $model->save(false);
+
+            $rating->user_id = $model->id;
+            $rating->save(false);
+
+            if (Yii::$app->user->login($model)) {
+                return $this->redirect(['site/friend', 'inviter_id' => $inviter_id]);
+            }
+        }
+
+        return $this->render('signup', [
+            'model' => $model,
+        ]);
+    }
+
+    public function actionCheckFriendStatus()
+    {
+        $playerId = Yii::$app->user->id;
+
+        $existingBattle = Battle::find()
+            ->andWhere(['or', ['playerOne' => $playerId], ['playerTwo' => $playerId]])
+            ->orderBy(['id' => SORT_DESC]) // Get latest battle
+            ->one();
+
+        if ($existingBattle) {
+            return $this->asJson([
+                'success' => true,
+                'battleUrl' => Url::to(['site/battle', 'id' => $existingBattle->id])
+            ]);
+        }
+
+        return $this->asJson(['success' => false]);
+    }
+
 
     public function actionRandom($mode = '0') {
         $playerId = Yii::$app->user->id;
         $player = Rating::findOne(['user_id' => $playerId]);
-        $player->status = 'lobby'; // Set status to "lobby"
+        $player->status = 'lobby';
+        $player->mode = $mode;
         $player->save(false);
 
-        return $this->redirect(['site/lobby', 'mode' => $mode]);
+        return $this->redirect(['site/lobby']);
     }
 
-    public function actionLobby($mode = '0') {
+    public function actionLobby($type) {
         return $this->render('lobby', [
-            'mode' => $mode,
+            'type' => $type,
         ]);
     }
 
@@ -251,7 +287,7 @@ class SiteController extends Controller
         return $this->redirect(['site/index']); // Go back to homepage
     }
 
-    public function actionFindOpponent($mode = '0') {
+    public function actionFindOpponent() {
         $playerId = Yii::$app->user->id;
         $player = Rating::findOne(['user_id' => $playerId]);
 
@@ -263,7 +299,7 @@ class SiteController extends Controller
         if ($existingBattle) {
             return $this->asJson([
                 'success' => true,
-                'battleUrl' => Url::to(['site/battle', 'id' => $existingBattle->id, 'mode' => $mode])
+                'battleUrl' => Url::to(['site/battle', 'id' => $existingBattle->id])
             ]);
         }
 
@@ -301,14 +337,14 @@ class SiteController extends Controller
 
             return $this->asJson([
                 'success' => true,
-                'battleUrl' => Url::to(['site/battle', 'id' => $battle->id, 'mode' => $mode]),
+                'battleUrl' => Url::to(['site/battle', 'id' => $battle->id]),
             ]);
         }
 
         return $this->asJson(['success' => false]); // No opponent yet, retry in 2s
     }
 
-    public function actionBattle($id, $mode = '0') {
+    public function actionBattle($id) {
         $battle = Battle::findOne($id);
         if (!$battle) {
             throw new NotFoundHttpException("Battle not found.");
@@ -322,8 +358,7 @@ class SiteController extends Controller
         }
 
         return $this->render('battle', [
-            'battle' => $battle,
-            'mode' => $mode,
+            'battle' => $battle
         ]);
     }
 

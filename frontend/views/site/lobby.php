@@ -3,7 +3,7 @@
 use yii\helpers\Html;
 use yii\helpers\Url;
 
-/** @var $mode */
+/** @var $type */
 
 $this->title = "Quran-PVP";
 ?>
@@ -17,7 +17,7 @@ $this->title = "Quran-PVP";
     </div>
 
     <!-- Cancel Button -->
-    <form style="margin-top: 30vh;" id="cancelForm" method="post" action="<?= Url::to(['site/cancel']) ?>">
+    <form style="margin-top: 20vh;" id="cancelForm" method="post" action="<?= Url::to(['site/cancel']) ?>">
         <?= Html::hiddenInput(Yii::$app->request->csrfParam, Yii::$app->request->csrfToken) ?>
         <button type="submit" class="btn btn-lg btn-danger px-5">Артқа</button>
     </form>
@@ -31,14 +31,20 @@ $this->title = "Quran-PVP";
         document.getElementById('dots').innerText = ".".repeat(dotCount);
     }, 500);
 
+    let type = "<?= $type ?>"; // Get the battle type from PHP
+
     function checkForOpponent() {
-        fetch('<?= Url::to(['site/find-opponent', 'mode' => $mode]) ?>')
+        let url = type === "friendly"
+            ? '<?= Url::to(['site/check-friend-status']) ?>' // Check if friend changed status
+            : '<?= Url::to(['site/find-opponent']) ?>'; // Match with a random opponent
+
+        fetch(url)
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    window.location.href = data.battleUrl; // Redirect to battle page with mode
+                    window.location.href = data.battleUrl; // Redirect to battle page
                 } else {
-                    setTimeout(checkForOpponent, 2000); // Retry after 2 seconds
+                    setTimeout(checkForOpponent, 3000); // Retry after 3 seconds
                 }
             });
     }
